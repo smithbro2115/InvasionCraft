@@ -113,8 +113,9 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 					"outpost8", "outpost9", "outpost10", "outpost11", "outpost12"));
 
 	private ArrayList<Player> invaders = new ArrayList<>();
+	private ArrayList<Player> defenders = new ArrayList<>();
 	private int invasionTeam = invaders.size() + 1;
-	private boolean invading = false;
+	private boolean defended = false;
 	public int invasionProgress = 0;
 	public String ocdOutpostNameCh = null;
 	public Faction occupiedFactionCh = null;
@@ -151,24 +152,35 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 						for (Player p : Bukkit.getOnlinePlayers()) {
 							LocalPlayer otherPlayer = worldGuardPlugin.wrapPlayer(p);
 							Vector otherVector = otherPlayer.getPosition();
-							Boolean defended = false;
 							ApplicableRegionSet otherRegionSet = regionManager.getApplicableRegions(otherVector);
 							for (ProtectedRegion r : otherRegionSet) {
 								def = MPlayer.get(p);
 								Faction defFaction = def.getFaction();
 								
-								if (defFaction.getRelationTo(invadingFaction) == Rel.ENEMY && r.getId().equals(ocdOutpostName)) {
-									defended = true;
+								if (defFaction == occupiedFaction && r.getId().equals(ocdOutpostName)) {
+									defenders.add(p);
+								}
+								
+								for (Player defender : defenders) {
+									Bukkit.broadcastMessage(ChatColor.GOLD + "test");
+									LocalPlayer defLP = worldGuardPlugin.wrapPlayer(defender);
+									Vector defVector = defLP.getPosition();
+									ApplicableRegionSet defRegionSet = regionManager.getApplicableRegions(defVector);
+									for (ProtectedRegion defRegion : defRegionSet) {
+										if (!defRegion.getId().equals(ocdOutpostName)){
+											defenders.remove(defender);
+										}
+									}
 								}
 								
 								
-								if (defended == false) {
+								if (defenders.size() <= 0) {
 									for (Player players : invaders) {
 										Bukkit.broadcastMessage(ChatColor.GOLD + players.getName());
 									}
 								}
 								
-								if (defended == false && !invaders.contains(invadingPlayer)) {
+								if (defenders.size() <= 0 && !invaders.contains(invadingPlayer)) {
 									invaders.add(invadingPlayer);
 									
 								}
