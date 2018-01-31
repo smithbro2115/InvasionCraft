@@ -1,0 +1,8 @@
+name: Invasion
+version: 1.0
+main: me.smithbro.invasioncraft.InvasionCraft
+depend: [Factions, WorldGuard, WorldEdit]
+description: Awesomeness
+commands:
+  outpost:
+    description: For creating and deleting outposts
