@@ -124,14 +124,6 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 	static Faction invadingFactionCh = null;
 
 	@EventHandler
-	public void onDeath(PlayerDeathEvent e) {
-		Player p = e.getEntity().getPlayer();
-		if (defenders.contains(p)) {
-			defenders.remove(p);
-		}
-	}
-	
-	@EventHandler
 	public void onMove(PlayerMoveEvent e) {
 		MPlayer invader = null;
 		MPlayer def = null;
@@ -156,8 +148,6 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 				for (ProtectedRegion region : applicableRegionSet) {
 					String ocdOutpostName = region.getId();
 					if (outpostRegions.contains(ocdOutpostName)) {
-
-						invadingPlayer.sendMessage(ChatColor.GOLD + "" + defenders.size());
 
 						if (defenders.size() == 0 && !invaders.contains(invadingPlayer)) {
 							invaders.add(invadingPlayer);
@@ -187,8 +177,7 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 
 		} else if (invaders.contains(invadingPlayer))
 			invaders.remove(invadingPlayer);
-		
-		
+
 		if (invaders.size() > 0) {
 			for (Player p : Bukkit.getOnlinePlayers()) {
 				LocalPlayer otherPlayer = worldGuardPlugin.wrapPlayer(p);
@@ -203,10 +192,12 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 						invaders.clear();
 					}
 				}
+
 			}
 		}
-		
 	}
+
+	
 
 	public void runnable() {
 
