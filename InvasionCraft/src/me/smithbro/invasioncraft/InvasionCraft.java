@@ -6,13 +6,16 @@ import java.util.stream.Collectors;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.Event.Result;
 import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.event.player.PlayerEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -115,12 +118,19 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 	static ArrayList<Player> invaders = new ArrayList<>();
 	static ArrayList<Player> defenders = new ArrayList<>();
 	static int defendingTeam = defenders.size();
-	private boolean defended = false;
 	static int invasionProgress = 0;
-	public String ocdOutpostNameCh = null;
-	public Faction occupiedFactionCh = null;
-	public Faction invadingFactionCh = null;
+	static String ocdOutpostNameCh = null;
+	static Faction occupiedFactionCh = null;
+	static Faction invadingFactionCh = null;
 
+	@EventHandler
+	public void onDeath(PlayerDeathEvent e) {
+		Player p = e.getEntity().getPlayer();
+		if (defenders.contains(p)) {
+			defenders.remove(p);
+		}
+	}
+	
 	@EventHandler
 	public void onMove(PlayerMoveEvent e) {
 		MPlayer invader = null;
@@ -146,56 +156,28 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 				for (ProtectedRegion region : applicableRegionSet) {
 					String ocdOutpostName = region.getId();
 					if (outpostRegions.contains(ocdOutpostName)) {
-						for (Player p : Bukkit.getOnlinePlayers()) {
-							LocalPlayer otherPlayer = worldGuardPlugin.wrapPlayer(p);
-							Vector otherVector = otherPlayer.getPosition();
-							ApplicableRegionSet otherRegionSet = regionManager.getApplicableRegions(otherVector);
-							for (ProtectedRegion r : otherRegionSet) {
-								def = MPlayer.get(p);
-								Faction defFaction = def.getFaction();
 
-								if (defFaction == occupiedFaction && r.getId().equals(ocdOutpostName)) {
-									invaders.clear();
-									invadingPlayer.sendMessage(ChatColor.GOLD + "Working");
-									if (!defenders.contains(p)) {
-										defenders.add(p);
-									}
+						invadingPlayer.sendMessage(ChatColor.GOLD + "" + defenders.size());
+
+						if (defenders.size() == 0 && !invaders.contains(invadingPlayer)) {
+							invaders.add(invadingPlayer);
+							for (Player i : invaders) {
+
+								factionI = MPlayer.get(i);
+								invadingFactionCh = factionI.getFaction();
+								Location invaderLocationCh = i.getLocation();
+								occupiedFactionCh = BoardColl.get().getFactionAt(PS.valueOf(invaderLocationCh));
+								LocalPlayer iLP = worldGuardPlugin.wrapPlayer(i);
+								Vector iVector = iLP.getPosition();
+								RegionManager iManager = worldGuardPlugin.getRegionManager(i.getWorld());
+								ApplicableRegionSet iRegionSet = iManager.getApplicableRegions(iVector);
+								for (ProtectedRegion iRegion : iRegionSet) {
+									ocdOutpostNameCh = iRegion.getId();
 								}
-
-								for (Player defender : defenders) {
-									LocalPlayer defLP = worldGuardPlugin.wrapPlayer(defender);
-									Vector defVector = defLP.getPosition();
-									RegionManager defManager = worldGuardPlugin.getRegionManager(defender.getWorld());
-									ApplicableRegionSet defRegionSet = defManager.getApplicableRegions(defVector);
-									for (ProtectedRegion defRegion : defRegionSet) {
-										if (!defRegion.getId().equals(ocdOutpostName)) {
-											defenders.remove(defender);
-										}
-									}
-								}
-
-								if (defenders.size() == 0 && !invaders.contains(invadingPlayer)) {
-									invaders.add(invadingPlayer);
-									for (Player i : invaders) {
-
-										factionI = MPlayer.get(i);
-										this.invadingFactionCh = factionI.getFaction();
-										Location invaderLocationCh = i.getLocation();
-										this.occupiedFactionCh = BoardColl.get()
-												.getFactionAt(PS.valueOf(invaderLocationCh));
-										LocalPlayer iLP = worldGuardPlugin.wrapPlayer(i);
-										Vector iVector = iLP.getPosition();
-										RegionManager iManager = worldGuardPlugin.getRegionManager(i.getWorld());
-										ApplicableRegionSet iRegionSet = iManager.getApplicableRegions(iVector);
-										for (ProtectedRegion iRegion : iRegionSet) {
-											this.ocdOutpostNameCh = iRegion.getId();
-										}
-									}
-								}
-
 							}
 
 						}
+
 					} else if (invaders.contains(invadingPlayer))
 						invaders.remove(invadingPlayer);
 				}
@@ -205,6 +187,25 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 
 		} else if (invaders.contains(invadingPlayer))
 			invaders.remove(invadingPlayer);
+		
+		
+		if (invaders.size() > 0) {
+			for (Player p : Bukkit.getOnlinePlayers()) {
+				LocalPlayer otherPlayer = worldGuardPlugin.wrapPlayer(p);
+				Vector otherVector = otherPlayer.getPosition();
+				RegionManager regionManager = worldGuardPlugin.getRegionManager(invadingPlayer.getWorld());
+				ApplicableRegionSet otherRegionSet = regionManager.getApplicableRegions(otherVector);
+				for (ProtectedRegion r : otherRegionSet) {
+					def = MPlayer.get(p);
+					Faction defFaction = def.getFaction();
+
+					if (defFaction == occupiedFaction && r.getId().equals(ocdOutpostNameCh)) {
+						invaders.clear();
+					}
+				}
+			}
+		}
+		
 	}
 
 	public void runnable() {
