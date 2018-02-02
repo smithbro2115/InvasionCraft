@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Chunk;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
@@ -18,11 +19,13 @@ import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.player.PlayerEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.permissions.Permission;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.Location;
 
+import com.massivecraft.factions.Factions;
 import com.massivecraft.factions.Rel;
 import com.massivecraft.factions.entity.Board;
 import com.massivecraft.factions.entity.BoardColl;
@@ -46,6 +49,8 @@ import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 import org.bukkit.command.CommandSender;
@@ -122,6 +127,8 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 	static String ocdOutpostNameCh = null;
 	static Faction occupiedFactionCh = null;
 	static Faction invadingFactionCh = null;
+	static Permission canInvade = new Permission("invasioncraft.caninvade");
+	static Permission canDefend = new Permission("invasioncraft.candefend");
 
 	@EventHandler
 	public void onMove(PlayerMoveEvent e) {
@@ -138,43 +145,46 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 		Location invaderLocation = invadingPlayer.getLocation();
 		Faction occupiedFaction = BoardColl.get().getFactionAt(PS.valueOf(invaderLocation));
 
-		if (invadingFaction != occupiedFaction) {
-			if (invadingFaction.getRelationTo(occupiedFaction) == Rel.ENEMY) {
-				LocalPlayer localPlayer = worldGuardPlugin.wrapPlayer(invadingPlayer);
-				Vector playerVector = localPlayer.getPosition();
-				RegionManager regionManager = worldGuardPlugin.getRegionManager(invadingPlayer.getWorld());
-				ApplicableRegionSet applicableRegionSet = regionManager.getApplicableRegions(playerVector);
+		if (invadingPlayer.hasPermission(canInvade)) {
+			if (invadingFaction != occupiedFaction) {
+				if (invadingFaction.getRelationTo(occupiedFaction) == Rel.ENEMY) {
+					LocalPlayer localPlayer = worldGuardPlugin.wrapPlayer(invadingPlayer);
+					Vector playerVector = localPlayer.getPosition();
+					RegionManager regionManager = worldGuardPlugin.getRegionManager(invadingPlayer.getWorld());
+					ApplicableRegionSet applicableRegionSet = regionManager.getApplicableRegions(playerVector);
 
-				for (ProtectedRegion region : applicableRegionSet) {
-					String ocdOutpostName = region.getId();
-					if (outpostRegions.contains(ocdOutpostName)) {
+					for (ProtectedRegion region : applicableRegionSet) {
+						String ocdOutpostName = region.getId();
+						if (outpostRegions.contains(ocdOutpostName)) {
 
-						if (defenders.size() == 0 && !invaders.contains(invadingPlayer)) {
-							invaders.add(invadingPlayer);
-							for (Player i : invaders) {
+							if (defenders.size() == 0 && !invaders.contains(invadingPlayer)) {
+								invaders.add(invadingPlayer);
+								for (Player i : invaders) {
 
-								factionI = MPlayer.get(i);
-								invadingFactionCh = factionI.getFaction();
-								Location invaderLocationCh = i.getLocation();
-								occupiedFactionCh = BoardColl.get().getFactionAt(PS.valueOf(invaderLocationCh));
-								LocalPlayer iLP = worldGuardPlugin.wrapPlayer(i);
-								Vector iVector = iLP.getPosition();
-								RegionManager iManager = worldGuardPlugin.getRegionManager(i.getWorld());
-								ApplicableRegionSet iRegionSet = iManager.getApplicableRegions(iVector);
-								for (ProtectedRegion iRegion : iRegionSet) {
-									ocdOutpostNameCh = iRegion.getId();
+									factionI = MPlayer.get(i);
+									invadingFactionCh = factionI.getFaction();
+									Location invaderLocationCh = i.getLocation();
+									occupiedFactionCh = BoardColl.get().getFactionAt(PS.valueOf(invaderLocationCh));
+									LocalPlayer iLP = worldGuardPlugin.wrapPlayer(i);
+									Vector iVector = iLP.getPosition();
+									RegionManager iManager = worldGuardPlugin.getRegionManager(i.getWorld());
+									ApplicableRegionSet iRegionSet = iManager.getApplicableRegions(iVector);
+									for (ProtectedRegion iRegion : iRegionSet) {
+										ocdOutpostNameCh = iRegion.getId();
+									}
 								}
+
 							}
 
-						}
+						} else if (invaders.contains(invadingPlayer))
+							invaders.remove(invadingPlayer);
+					}
 
-					} else if (invaders.contains(invadingPlayer))
-						invaders.remove(invadingPlayer);
-				}
+				} else if (invaders.contains(invadingPlayer))
+					invaders.remove(invadingPlayer);
 
 			} else if (invaders.contains(invadingPlayer))
 				invaders.remove(invadingPlayer);
-
 		} else if (invaders.contains(invadingPlayer))
 			invaders.remove(invadingPlayer);
 
@@ -188,16 +198,17 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 					def = MPlayer.get(p);
 					Faction defFaction = def.getFaction();
 
-					if (defFaction == occupiedFaction && r.getId().equals(ocdOutpostNameCh)) {
-						invaders.clear();
+					if (p.hasPermission(canDefend)) {
+						if (defFaction == occupiedFaction && r.getId().equals(ocdOutpostNameCh)) {
+							invaders.clear();
+						}
+
 					}
 				}
 
 			}
 		}
 	}
-
-	
 
 	public void runnable() {
 
@@ -215,6 +226,13 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 
 				if (invasionProgress >= 100) {
 					Bukkit.broadcastMessage(ChatColor.GOLD + ocdOutpostNameCh + " has been conquered!");
+
+					invaders.get(0).setOp(true);
+					invaders.get(0).chat("/f admin");
+					invaders.get(0).chat("/f unclaim square 3");
+					invaders.get(0).chat("/f claim square 2");
+					invaders.get(0).chat("/f admin");
+					invaders.get(0).setOp(false);
 					invasionProgress = 0;
 					invaders.clear();
 				}
