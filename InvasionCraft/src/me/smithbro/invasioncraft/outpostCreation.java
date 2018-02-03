@@ -1,4 +1,4 @@
-package me.smithbro.invasioncraft;
+	package me.smithbro.invasioncraft;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -11,12 +11,19 @@ import org.bukkit.plugin.Plugin;
 
 import com.massivecraft.factions.entity.Faction;
 import com.massivecraft.factions.entity.MPlayer;
+import com.sk89q.worldedit.Vector;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
 import com.sk89q.worldedit.bukkit.selections.Selection;
+import com.sk89q.worldguard.LocalPlayer;
+import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
+import com.sk89q.worldguard.protection.ApplicableRegionSet;
+import com.sk89q.worldguard.protection.managers.RegionManager;
+import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 
 public class outpostCreation implements CommandExecutor {
 
 	InvasionCraft plugin;
+	public WorldGuardPlugin worldGuardPlugin;
 
 	public outpostCreation(InvasionCraft passedPlugin) {
 		this.plugin = passedPlugin;
@@ -31,6 +38,16 @@ public class outpostCreation implements CommandExecutor {
 		else
 			return null;
 	}
+	private WorldGuardPlugin getWorldGuard() {
+		Plugin plugin = Bukkit.getServer().getPluginManager().getPlugin("WorldGuard");
+
+		// WorldGuard may not be loaded
+		if (plugin == null || !(plugin instanceof WorldGuardPlugin)) {
+			return null; // Maybe you want throw an exception instead
+		}
+
+		return (WorldGuardPlugin) plugin;
+	}
 
 	public boolean onCommand(CommandSender sender, Command cmd, String CommandLabel, String[] args) {
 		Player p = (Player) sender;
@@ -41,13 +58,21 @@ public class outpostCreation implements CommandExecutor {
 			sender.sendMessage(ChatColor.GOLD + "/outpost delete <number (0-12): Deletes an outpost");
 		} else if (args[0].equalsIgnoreCase("create")) {
 			if (args[1] != null) {
-				Selection s = getWorldEdit().getSelection(p);
+				LocalPlayer localPlayer = worldGuardPlugin.wrapPlayer(p);
+				Vector playerVector = localPlayer.getPosition();
+				RegionManager regionManager = worldGuardPlugin.getRegionManager(p.getWorld());
+				ApplicableRegionSet applicableRegionSet = regionManager.getApplicableRegions(playerVector);
+				ProtectedRegion r;
 
-				if (s == null) {
-					sender.sendMessage("You need to make a World Edit selection!");
+				for (ProtectedRegion region : applicableRegionSet) {
+					r = region;
 				}
 
-				String outpostNum = "outpost" + args[1];
+				if (!InvasionCraft.outpostRegions.contains(r.getId())) {
+					sender.sendMessage("You need to be in an outpost region!");
+				}
+
+				String outpostNum = "" + args[1];
 				sender.sendMessage(ChatColor.GREEN + outpostNum + " Created");
 				config.set("Outposts." + outpostNum + ".cornerA", s.getMinimumPoint());
 				config.set("Outposts." + outpostNum + ".cornerB", s.getMaximumPoint());

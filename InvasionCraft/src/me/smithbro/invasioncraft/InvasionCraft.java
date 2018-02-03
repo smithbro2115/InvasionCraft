@@ -119,13 +119,14 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 		return (WorldGuardPlugin) plugin;
 	}
 
-	private ArrayList<String> outpostRegions = new ArrayList<>(
+	public static ArrayList<String> outpostRegions = new ArrayList<>(
 			Arrays.asList("outpost1", "outpost2", "outpost3", "outpost4", "outpost5", "outpost6", "outpost7",
 					"outpost8", "outpost9", "outpost10", "outpost11", "outpost12"));
 
 	static ArrayList<Player> invaders = new ArrayList<>();
 	static ArrayList<Player> defenders = new ArrayList<>();
-	HashMap<String, Integer> outpostNum = new HashMap<>();
+	HashMap<Integer, Faction> outpostNumF = new HashMap<>();
+	HashMap<String, Integer> outpostNumO = new HashMap<>();
 	static int defendingTeam = defenders.size();
 	static int invasionProgress = 0;
 	static String ocdOutpostNameCh = null;
@@ -149,7 +150,7 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 		int i = 0;
 		for (String s : outpostRegions) {
 			i++;
-			outpostNum.putIfAbsent(s, i);
+			outpostNumO.putIfAbsent(s, i);
 		}
 	}
 	
