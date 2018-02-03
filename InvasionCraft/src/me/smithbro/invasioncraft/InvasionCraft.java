@@ -51,6 +51,7 @@ import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
@@ -91,6 +92,7 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 		worldGuardPlugin = getWorldGuard();
 		runnable();
 		runnable2();
+		puttingOutpostsInHash();
 	}
 
 	@Override
@@ -123,6 +125,7 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 
 	static ArrayList<Player> invaders = new ArrayList<>();
 	static ArrayList<Player> defenders = new ArrayList<>();
+	HashMap<String, Integer> outpostNum = new HashMap<>();
 	static int defendingTeam = defenders.size();
 	static int invasionProgress = 0;
 	static String ocdOutpostNameCh = null;
@@ -139,6 +142,14 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 			if(invaders.contains(e.getPlayer())) {
 				invaders.remove(e.getPlayer());
 			}
+		}
+	}
+	
+	public void puttingOutpostsInHash() {
+		int i = 0;
+		for (String s : outpostRegions) {
+			i++;
+			outpostNum.putIfAbsent(s, i);
 		}
 	}
 	
@@ -167,12 +178,7 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 
 					for (ProtectedRegion region : applicableRegionSet) {
 						String ocdOutpostName = region.getId();
-						if (region != ocdOutpostCh) {
-							invaders.remove(invadingPlayer);
-							invadingPlayer.sendMessage("worked");
-						}
 						if (outpostRegions.contains(ocdOutpostName)) {
-
 							if (defenders.size() == 0 && !invaders.contains(invadingPlayer)) {
 								ocdOutpostCh = region;
 								invaders.add(invadingPlayer);
