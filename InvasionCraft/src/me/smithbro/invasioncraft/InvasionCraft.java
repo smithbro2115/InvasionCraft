@@ -35,6 +35,7 @@ import com.massivecraft.factions.entity.MPlayer;
 import com.massivecraft.massivecore.ps.PS;
 import com.massivecraft.massivecore.store.Coll;
 import com.massivecraft.massivecore.util.IdUtil;
+import com.mewin.WGRegionEvents.events.RegionLeaveEvent;
 import com.sk89q.worldedit.Vector;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
 import com.sk89q.worldedit.bukkit.selections.CuboidSelection;
@@ -125,11 +126,22 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 	static int defendingTeam = defenders.size();
 	static int invasionProgress = 0;
 	static String ocdOutpostNameCh = null;
+	static ProtectedRegion ocdOutpostCh = null;
 	static Faction occupiedFactionCh = null;
 	static Faction invadingFactionCh = null;
 	static Permission canInvade = new Permission("invasioncraft.caninvade");
 	static Permission canDefend = new Permission("invasioncraft.candefend");
 
+	@EventHandler
+	public void onLeave (RegionLeaveEvent e) {
+		String regionName = e.getRegion().getId();
+		if (regionName.equals(ocdOutpostNameCh)) {
+			if(invaders.contains(e.getPlayer())) {
+				invaders.remove(e.getPlayer());
+			}
+		}
+	}
+	
 	@EventHandler
 	public void onMove(PlayerMoveEvent e) {
 		MPlayer invader = null;
@@ -155,9 +167,14 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 
 					for (ProtectedRegion region : applicableRegionSet) {
 						String ocdOutpostName = region.getId();
+						if (region != ocdOutpostCh) {
+							invaders.remove(invadingPlayer);
+							invadingPlayer.sendMessage("worked");
+						}
 						if (outpostRegions.contains(ocdOutpostName)) {
 
 							if (defenders.size() == 0 && !invaders.contains(invadingPlayer)) {
+								ocdOutpostCh = region;
 								invaders.add(invadingPlayer);
 								for (Player i : invaders) {
 
@@ -175,6 +192,7 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 								}
 
 							}
+							
 
 						} else if (invaders.contains(invadingPlayer))
 							invaders.remove(invadingPlayer);

@@ -11,5 +11,6 @@
 	<classpathentry kind="lib" path="C:/Users/smith/Downloads/Factions.jar"/>
 	<classpathentry kind="lib" path="C:/Users/smith/Downloads/worldguard-6.2.1.jar"/>
 	<classpathentry kind="lib" path="C:/Users/smith/Downloads/worldedit-bukkit-6.1.7.3.jar"/>
+	<classpathentry kind="lib" path="C:/Users/smith/Downloads/WGRegionEvents.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
