@@ -1,8 +1,10 @@
-name: Invasion
+name: InvasionCraft
 version: 1.0
 main: me.smithbro.invasioncraft.InvasionCraft
 depend: [Factions, WorldGuard, WorldEdit]
 description: Awesomeness
 commands:
+  conquer:
+    description: Force Conquer (for testing purposes)
   outpost:
-    description: For creating and deleting outposts
+    description: For assigning and unassigning outposts

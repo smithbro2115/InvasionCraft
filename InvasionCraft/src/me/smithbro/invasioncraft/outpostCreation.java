@@ -1,19 +1,19 @@
-	package me.smithbro.invasioncraft;
+package me.smithbro.invasioncraft;
+
+import java.util.ArrayList;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
-import com.massivecraft.factions.entity.Faction;
-import com.massivecraft.factions.entity.MPlayer;
 import com.sk89q.worldedit.Vector;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
-import com.sk89q.worldedit.bukkit.selections.Selection;
 import com.sk89q.worldguard.LocalPlayer;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
@@ -23,7 +23,7 @@ import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 public class outpostCreation implements CommandExecutor {
 
 	InvasionCraft plugin;
-	public WorldGuardPlugin worldGuardPlugin;
+	static WorldGuardPlugin worldGuardPlugin;
 
 	public outpostCreation(InvasionCraft passedPlugin) {
 		this.plugin = passedPlugin;
@@ -38,6 +38,7 @@ public class outpostCreation implements CommandExecutor {
 		else
 			return null;
 	}
+
 	private WorldGuardPlugin getWorldGuard() {
 		Plugin plugin = Bukkit.getServer().getPluginManager().getPlugin("WorldGuard");
 
@@ -49,43 +50,75 @@ public class outpostCreation implements CommandExecutor {
 		return (WorldGuardPlugin) plugin;
 	}
 
+	static ArrayList<String> allowedRegions = new ArrayList<>();
+
+	public void getRegion() {
+		int i = 1;
+		ConfigurationSection configSection = config.getConfigurationSection("Outpost." + i);
+		
+		for (String key : configSection.getKeys(false)) {
+			i++;
+			if (!allowedRegions.contains(key)) {
+				allowedRegions.add(key);
+			}
+
+		}
+		
+	}
+
 	public boolean onCommand(CommandSender sender, Command cmd, String CommandLabel, String[] args) {
+		worldGuardPlugin = getWorldGuard();
 		Player p = (Player) sender;
+		getRegion();
+		for (String test : allowedRegions) {
+			p.sendMessage(test);
+		}
 
 		if (args.length == 0) {
 			sender.sendMessage(ChatColor.GOLD
-					+ "/outpost create <number (0-12>: Creates an outpost, you must have a WorldEdit selection");
-			sender.sendMessage(ChatColor.GOLD + "/outpost delete <number (0-12): Deletes an outpost");
-		} else if (args[0].equalsIgnoreCase("create")) {
-			if (args[1] != null) {
+					+ "/outpost create <number (1-12>: Assigns an outpost to the WorldGuard region your standing in");
+			sender.sendMessage(ChatColor.GOLD + "/outpost delete <number (1-12): Unassigns an outpost");
+		}
+
+		else if (args[0].equalsIgnoreCase("create")) {
+			if (args.length == 1) {
+				sender.sendMessage(ChatColor.GOLD
+						+ "/outpost create <number (1-12>: Assigns an outpost to the WorldGuard region your standing in");
+			}
+
+			else if (args.length == 2) {
 				LocalPlayer localPlayer = worldGuardPlugin.wrapPlayer(p);
 				Vector playerVector = localPlayer.getPosition();
 				RegionManager regionManager = worldGuardPlugin.getRegionManager(p.getWorld());
 				ApplicableRegionSet applicableRegionSet = regionManager.getApplicableRegions(playerVector);
-				ProtectedRegion r;
+				ProtectedRegion r = null;
 
 				for (ProtectedRegion region : applicableRegionSet) {
 					r = region;
 				}
+				if (r != null) {
+					if (!InvasionCraft.outpostRegions.contains(r.getId())) {
+						sender.sendMessage(ChatColor.RED + "You need to be in an outpost region!");
+					}
 
-				if (!InvasionCraft.outpostRegions.contains(r.getId())) {
-					sender.sendMessage("You need to be in an outpost region!");
-				}
+					else if (!allowedRegions.contains(r.getId())) {
+						config.set("Outpost." + args[1] + ".region", r.getId());
+						InvasionCraft.plugin.saveConfig();
+						InvasionCraft.plugin.reloadConfig();
+						String outpostNum = "" + args[1];
+						sender.sendMessage(ChatColor.GREEN + outpostNum + " assigned");
+					} else
+						sender.sendMessage(ChatColor.RED + r.getId() + " is already assigned to an outpost");
 
-				String outpostNum = "" + args[1];
-				sender.sendMessage(ChatColor.GREEN + outpostNum + " Created");
-				config.set("Outposts." + outpostNum + ".cornerA", s.getMinimumPoint());
-				config.set("Outposts." + outpostNum + ".cornerB", s.getMaximumPoint());
-				config.set("Outposts." + outpostNum + ".world", s.getWorld().getName());
-				config.set("Outposts." + outpostNum + ".number", args[1]);
-				InvasionCraft.plugin.saveConfig();
-				InvasionCraft.plugin.reloadConfig();
-
+				} else
+					sender.sendMessage(ChatColor.RED + "You need to be in a region!");
 			} else
-				sender.sendMessage(ChatColor.RED + "You must enter a number within 0 and 12");
-		} else if (args[0].equalsIgnoreCase("delete")) {
+				sender.sendMessage(ChatColor.RED + "You need to have a number between 1 and 12!");
+		}
+
+		else if (args[0].equalsIgnoreCase("delete")) {
 			if (args[1] != null) {
-                String outpostNum = "outpost" + args[1];
+				String outpostNum = "outpost" + args[1];
 				sender.sendMessage(ChatColor.GREEN + outpostNum + " Deleted");
 				config.set("Outpost." + outpostNum, null);
 				InvasionCraft.plugin.saveConfig();
