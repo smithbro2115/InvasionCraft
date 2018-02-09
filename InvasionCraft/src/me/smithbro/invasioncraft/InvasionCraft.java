@@ -14,6 +14,11 @@ import org.bukkit.permissions.Permission;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scoreboard.DisplaySlot;
+import org.bukkit.scoreboard.Objective;
+import org.bukkit.scoreboard.Score;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.ScoreboardManager;
 import org.bukkit.Location;
 
 import com.massivecraft.factions.Rel;
@@ -22,19 +27,28 @@ import com.massivecraft.factions.entity.Faction;
 import com.massivecraft.factions.entity.MPlayer;
 import com.massivecraft.massivecore.ps.PS;
 import com.mewin.WGRegionEvents.events.RegionLeaveEvent;
+import com.sk89q.worldedit.BlockVector;
+import com.sk89q.worldedit.EditSession;
+import com.sk89q.worldedit.LocalWorld;
 import com.sk89q.worldedit.Vector;
+import com.sk89q.worldedit.WorldEdit;
+import com.sk89q.worldedit.bukkit.BukkitWorld;
+import com.sk89q.worldedit.bukkit.selections.CuboidSelection;
+import com.sk89q.worldedit.regions.Polygonal2DRegion;
 import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldguard.LocalPlayer;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
+import com.sk89q.worldguard.session.Session;
 
 import me.dablakbandit.chatapi.packetlistener.PacketListener;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 
 public class InvasionCraft extends JavaPlugin implements Listener {
 	Logger invasionCraftLogger = Bukkit.getLogger();
@@ -124,7 +138,6 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 		if (regionName.equals(ocdOutpostNameCh)) {
 			if (invaders.contains(e.getPlayer())) {
 				invaders.remove(e.getPlayer());
-				e.getPlayer().sendMessage("worked " + invaders.size());
 			}
 		}
 	}
@@ -148,6 +161,46 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 		return num;
 	}
 
+	/*public void bannerSwitch(ProtectedRegion pRegion) {
+		for (BlockVector block : pRegion.get)
+	}*/
+
+	public void setScoreboardInvasion(Faction f) {
+		List<Player> players = f.getOnlinePlayers();
+		
+		for(Player player : players) {
+			getScoreboardInvasion(player);
+		}
+	}
+	
+	public void getScoreboardInvasion(Player player) {
+		
+		if(invasionProgress > 0) {
+		ScoreboardManager m = Bukkit.getScoreboardManager();
+		Scoreboard b = m.getNewScoreboard();
+		
+		Objective o = b.registerNewObjective("Invading Faction", "dummy");
+		o.setDisplaySlot(DisplaySlot.SIDEBAR);
+		o.setDisplayName(ChatColor.DARK_GREEN + "The Lands of Ardaus");
+		Score invadingF = o.getScore(ChatColor.GOLD + "Invading Faction: " + ChatColor.RED + invadingFactionCh.getName());
+		Score occupiedF = o.getScore(ChatColor.GOLD + "Occupied Faction: " + ChatColor.RED + occupiedFactionCh.getName());
+		Score oOutpost = o.getScore(ChatColor.GOLD + "Occupied Outpost: " + ChatColor.RED + ocdOutpostNameCh);
+		Score inProgress = o.getScore(ChatColor.GOLD + "Invasion Progress: "  + ChatColor.RED + invasionProgress + "%");
+		Score blank1 = o.getScore(ChatColor.GOLD.toString());
+		Score blank2 = o.getScore(ChatColor.GOLD.toString());
+		blank1.setScore(1);
+		invadingF.setScore(6);
+		occupiedF.setScore(5);
+		blank2.setScore(4);
+		oOutpost.setScore(3);
+		inProgress.setScore(2);
+		
+		player.setScoreboard(b);
+		}
+		else player.setScoreboard(Bukkit.getScoreboardManager().getNewScoreboard());
+		
+	}
+	
 	@EventHandler
 	public void onMove(PlayerMoveEvent e) {
 		MPlayer invader = null;
@@ -168,12 +221,16 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 					RegionManager regionManager = worldGuardPlugin.getRegionManager(invadingPlayer.getWorld());
 					ApplicableRegionSet applicableRegionSet = regionManager.getApplicableRegions(playerVector);
 					String ocdOutpostName = null;
+					ProtectedRegion ocdRegion = null;
 
 					for (ProtectedRegion region : applicableRegionSet) {
 						ocdOutpostName = region.getId();
+					}
+
+					if (ocdOutpostName != null) {
 						if (outpostRegions.contains(ocdOutpostName)) {
 							if (defenders.size() == 0 && !invaders.contains(invadingPlayer)) {
-								int outpostNum = getOutpostNum(region.getId());
+								int outpostNum = getOutpostNum(ocdOutpostName);
 								int connectedOutpost1 = plugin.getConfig()
 										.getInt("Outpost." + outpostNum + ".connected1");
 								int connectedOutpost2 = plugin.getConfig()
@@ -184,7 +241,7 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 										.getString("Outpost." + connectedOutpost2 + ".faction");
 								if (invadingFaction.getName().equals(cFaction1)
 										|| invadingFaction.getName().equals(cFaction2)) {
-									ocdOutpostCh = region;
+									ocdOutpostCh = ocdRegion;
 									invaders.add(invadingPlayer);
 									for (Player i : invaders) {
 
@@ -200,6 +257,7 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 											if (outpostRegions.contains(iRegion.getId())) {
 												ocdOutpostNameCh = iRegion.getId();
 												outpostNum = getOutpostNum(ocdOutpostNameCh);
+												break;
 											}
 
 										}
@@ -211,9 +269,8 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 
 						} else if (invaders.contains(invadingPlayer))
 							invaders.remove(invadingPlayer);
-
-					}
-					
+					} else if (invaders.contains(invadingPlayer))
+						invaders.remove(invadingPlayer);
 
 				} else if (invaders.contains(invadingPlayer))
 					invaders.remove(invadingPlayer);
@@ -270,7 +327,6 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 	 * 
 	 * } } } } Didn't work may keep
 	 */
-	static int percentSpam = 0;
 
 	public void runnable() {
 
@@ -285,7 +341,6 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 				ticks++;
 				if (ticks % delay != 0)
 					return;
-				Bukkit.broadcastMessage(invadersAmount + "");
 
 				if (invasionProgress >= 100) {
 					Bukkit.broadcastMessage(
@@ -309,10 +364,12 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 						invasionProgress = 0;
 						invaders.clear();
 					}
-					percentSpam = 0;
-					plugin.getConfig().set("Outpost." + outpostNum + ".faction", invadingFactionCh.getName());
+					int outpostNumL = getOutpostNum(ocdOutpostNameCh);
+					plugin.getConfig().set("Outpost." + outpostNumL + ".faction", invadingFactionCh.getName());
 					plugin.saveConfig();
 					plugin.reloadConfig();
+					setScoreboardInvasion(invadingFactionCh);
+					setScoreboardInvasion(occupiedFactionCh);
 				}
 				if (invadersAmount > 0 && invasionProgress <= 100) {
 					if (invasionProgress == 0) {
@@ -322,13 +379,13 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 								+ invadingFactionCh.getName());
 					}
 					invasionProgress++;
-					percentSpam++;
-					if (percentSpam >= 5) {
+					setScoreboardInvasion(invadingFactionCh);
+					setScoreboardInvasion(occupiedFactionCh);
+					if (invasionProgress % 5 == 0) {
 						Bukkit.broadcastMessage(ChatColor.RED + occupiedFactionCh.getName() + "'s" + ChatColor.GOLD
 								+ " outpost " + ChatColor.RED + ocdOutpostNameCh + ChatColor.GOLD + ", is "
 								+ ChatColor.RED + invasionProgress + ChatColor.GOLD + "% occupied by " + ChatColor.RED
 								+ invadingFactionCh.getName());
-						percentSpam = 0;
 					}
 				}
 				invadersAmount = invaders.size();
@@ -343,18 +400,19 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 			public void run() {
 
 				if (invaders.size() == 0 && invasionProgress > 0) {
-					if (percentSpam >= 5) {
+					if (invasionProgress % 5 == 0) {
 						Bukkit.broadcastMessage(ChatColor.RED + occupiedFactionCh.getName() + "'s" + ChatColor.GOLD
 								+ " outpost " + ChatColor.RED + ocdOutpostNameCh + ChatColor.GOLD
 								+ ", is being restored " + ChatColor.RED + invasionProgress + "%");
-						percentSpam = 0;
 					}
 					invasionProgress--;
-					percentSpam++;
+					setScoreboardInvasion(invadingFactionCh);
+					setScoreboardInvasion(occupiedFactionCh);
 					if (invasionProgress == 0) {
 						Bukkit.broadcastMessage(
 								ChatColor.RED + ocdOutpostNameCh + ChatColor.GOLD + " has been restored!");
-						percentSpam = 0;
+						setScoreboardInvasion(invadingFactionCh);
+						setScoreboardInvasion(occupiedFactionCh);
 					}
 				}
 			}
