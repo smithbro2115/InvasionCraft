@@ -1,25 +1,83 @@
-outpost0:
+Outpost:
+  A:
+    connected1: 1
+    faction: Aion
+  W:
+    connected1: 12
+    faction: Wrenn
+  M:
+    connected1: 8
+    faction: Mythros
+  C:
+    connected1: 4
+    connected2: 5
+    connected3: 9
+    faction: Aion
+  '1':
+    region: outpost1
+    connected1: A
+    connected2: 2
+    faction: Aion
+  '2':
+    region: outpost2
+    connected1: 1
+    connected2: 3
+    faction: Aion
+  '3':
+    region: outpost3
+    connected1: 2
+    connected2: 4
+    faction: Aion
+  '4':
+    region: outpost4
+    connected1: 3
+    connected2: C
+    faction: Aion
+  '5':
+    region: outpost5
+    connected1: C
+    connected2: 6
+    faction: Mythros
+  '6':
+    region: outpost6
+    connected1: 5
+    connected2: 7
+    faction: Mythros
+  '7':
+    region: outpost7
+    connected1: 6
+    connected2: 8
+    faction: Mythros
+  '8':
+    region: outpost8
+    connected1: 7
+    connected2: M
+    faction: Mythros
+  '9':
+    region: outpost9
+    connected1: C
+    connected2: 10
+    faction: Wrenn
+  '10':
+    region: outpost10
+    connected1: 9
+    connected2: 11
+    faction: Wrenn
+  '11':
+    region: outpost11
+    connected1: 10
+    connected2: 12
+    faction: Wrenn
+  '12':
+    region: outpost12
+    connected1: 11
+    connected2: W
+    faction: Wrenn
 
-outpost1:
-
-outpost2:
-
-outpost3:
-
-outpost4:
-
-outpost5:
-
-outpost6:
-
-outpost7:
-
-outpost8:
-
-outpost9:
-
-outpost10:
-
-outpost11:
-
-outpost12:
+Kingdom:
+  Mythros:
+    
+  Aion:
+    
+  Wrenn:
+    

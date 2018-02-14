@@ -3,12 +3,16 @@ package me.smithbro.invasioncraft;
 import java.util.logging.Logger;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.DyeColor;
 import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.block.banner.Pattern;
+import org.bukkit.craftbukkit.v1_12_R1.block.CraftBanner;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
-import org.bukkit.event.player.PlayerChatEvent;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.permissions.Permission;
 import org.bukkit.plugin.Plugin;
@@ -20,6 +24,7 @@ import org.bukkit.scoreboard.Score;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
 import org.bukkit.Location;
+import org.bukkit.Material;
 
 import com.massivecraft.factions.Rel;
 import com.massivecraft.factions.entity.BoardColl;
@@ -27,24 +32,15 @@ import com.massivecraft.factions.entity.Faction;
 import com.massivecraft.factions.entity.MPlayer;
 import com.massivecraft.massivecore.ps.PS;
 import com.mewin.WGRegionEvents.events.RegionLeaveEvent;
-import com.sk89q.worldedit.BlockVector;
-import com.sk89q.worldedit.EditSession;
-import com.sk89q.worldedit.LocalWorld;
 import com.sk89q.worldedit.Vector;
-import com.sk89q.worldedit.WorldEdit;
-import com.sk89q.worldedit.bukkit.BukkitWorld;
-import com.sk89q.worldedit.bukkit.selections.CuboidSelection;
-import com.sk89q.worldedit.regions.Polygonal2DRegion;
 import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldguard.LocalPlayer;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
-import com.sk89q.worldguard.session.Session;
 
-import me.dablakbandit.chatapi.packetlistener.PacketListener;
-
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -54,6 +50,8 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 	Logger invasionCraftLogger = Bukkit.getLogger();
 	Region getRegion;
 	public WorldGuardPlugin worldGuardPlugin;
+	File banners = new File(this.getDataFolder(), "banners.yml");
+	File kingdomoutposts = new File(this.getDataFolder(), "kingdomoutposts.yml");
 
 	/*
 	 * if player moves then find what faction the player is in and who the owner of
@@ -76,12 +74,12 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 	public void onEnable() {
 		Bukkit.getServer().getPluginManager().registerEvents(this, this);
 		plugin = this;
-
 		getConfig().options().copyDefaults(true);
 		saveConfig();
 		reloadConfig();
 		this.getCommand("outpost").setExecutor(new outpostCreation(this));
 		this.getCommand("conquer").setExecutor(new ForceConquer(this));
+		this.getCommand("patternset").setExecutor(new KingdomBannerCmd(this));
 		worldGuardPlugin = getWorldGuard();
 		runnable();
 		runnable2();
@@ -124,7 +122,7 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 	HashMap<String, Integer> outpostNumO = new HashMap<>();
 	static int defendingTeam = defenders.size();
 	static int invasionProgress = 0;
-	static String ocdOutpostNameCh = null;
+	static String ocdOutpostNameCh = "";
 	static ProtectedRegion ocdOutpostCh = null;
 	static Faction occupiedFactionCh = null;
 	static Faction invadingFactionCh = null;
@@ -161,46 +159,64 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 		return num;
 	}
 
-	/*public void bannerSwitch(ProtectedRegion pRegion) {
-		for (BlockVector block : pRegion.get)
-	}*/
+	
+	@SuppressWarnings("unchecked")
+	public void bannerSwitch(Location min, Location max) {
+	    for (int x = min.getBlockX() - 4; x <= max.getBlockX() + 4; x++) {
+	        for (int y = min.getBlockY() - 4; y <= max.getBlockY() + 4; y++) {
+	            for (int z = min.getBlockZ() - 4; z <= max.getBlockZ() + 4; z++) {
+	                Block blk = min.getWorld().getBlockAt(new Location(min.getWorld(), x, y, z));
+	                if (blk.getType() == Material.STANDING_BANNER || blk.getType() == Material.WALL_BANNER) {
+	                	CraftBanner bM = new CraftBanner(blk);
+	                	List<Pattern> p = (List<Pattern>) plugin.getConfig().getList("Kingdom." + invadingFactionCh.getName() + ".banner.patterns");
+	                	String dyeString = plugin.getConfig().getString("Kingdom." + invadingFactionCh.getName() + ".banner.color");
+	                	DyeColor c = DyeColor.valueOf(dyeString);
+	                	bM.setBaseColor(c);
+	                	bM.setPatterns(p);
+	                	bM.update(true);
+	                }
+	            }
+	        }
+	    }
+	}
+	 
 
 	public void setScoreboardInvasion(Faction f) {
 		List<Player> players = f.getOnlinePlayers();
-		
-		for(Player player : players) {
+
+		for (Player player : players) {
 			getScoreboardInvasion(player);
 		}
 	}
-	
+
 	public void getScoreboardInvasion(Player player) {
-		
-		if(invasionProgress > 0) {
-		ScoreboardManager m = Bukkit.getScoreboardManager();
-		Scoreboard b = m.getNewScoreboard();
-		
-		Objective o = b.registerNewObjective("Invading Faction", "dummy");
-		o.setDisplaySlot(DisplaySlot.SIDEBAR);
-		o.setDisplayName(ChatColor.DARK_GREEN + "The Lands of Ardaus");
-		Score invadingF = o.getScore(ChatColor.GOLD + "Invading Faction: " + ChatColor.RED + invadingFactionCh.getName());
-		Score occupiedF = o.getScore(ChatColor.GOLD + "Occupied Faction: " + ChatColor.RED + occupiedFactionCh.getName());
-		Score oOutpost = o.getScore(ChatColor.GOLD + "Occupied Outpost: " + ChatColor.RED + ocdOutpostNameCh);
-		Score inProgress = o.getScore(ChatColor.GOLD + "Invasion Progress: "  + ChatColor.RED + invasionProgress + "%");
-		Score blank1 = o.getScore(ChatColor.GOLD.toString());
-		Score blank2 = o.getScore(ChatColor.GOLD.toString());
-		blank1.setScore(1);
-		invadingF.setScore(6);
-		occupiedF.setScore(5);
-		blank2.setScore(4);
-		oOutpost.setScore(3);
-		inProgress.setScore(2);
-		
-		player.setScoreboard(b);
-		}
-		else player.setScoreboard(Bukkit.getScoreboardManager().getNewScoreboard());
-		
+
+		if (invasionProgress > 0) {
+			ScoreboardManager m = Bukkit.getScoreboardManager();
+			Scoreboard b = m.getNewScoreboard();
+
+			Objective o = b.registerNewObjective("Invading Faction", "dummy");
+			o.setDisplaySlot(DisplaySlot.SIDEBAR);
+			o.setDisplayName(ChatColor.BOLD + occupiedFactionCh.getName() + " is being invaded");
+			Score invadingF = o.getScore(ChatColor.GOLD + "Invaders: " + ChatColor.RED + invadingFactionCh.getName());
+			Score occupiedF = o.getScore(ChatColor.GOLD + "Defenders: " + ChatColor.RED + occupiedFactionCh.getName());
+			Score oOutpost = o.getScore(ChatColor.GOLD + "Outpost Name: " + ChatColor.RED + ocdOutpostNameCh);
+			Score inProgress = o.getScore(ChatColor.GOLD + "Progress: " + ChatColor.RED + invasionProgress + "%");
+			Score blank1 = o.getScore(ChatColor.GOLD.toString());
+			Score blank2 = o.getScore(ChatColor.GOLD.toString());
+			blank1.setScore(1);
+			invadingF.setScore(6);
+			occupiedF.setScore(5);
+			blank2.setScore(4);
+			oOutpost.setScore(3);
+			inProgress.setScore(2);
+
+			player.setScoreboard(b);
+		} else
+			player.setScoreboard(Bukkit.getScoreboardManager().getNewScoreboard());
+
 	}
-	
+
 	@EventHandler
 	public void onMove(PlayerMoveEvent e) {
 		MPlayer invader = null;
@@ -221,52 +237,55 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 					RegionManager regionManager = worldGuardPlugin.getRegionManager(invadingPlayer.getWorld());
 					ApplicableRegionSet applicableRegionSet = regionManager.getApplicableRegions(playerVector);
 					String ocdOutpostName = null;
-					ProtectedRegion ocdRegion = null;
 
 					for (ProtectedRegion region : applicableRegionSet) {
 						ocdOutpostName = region.getId();
 					}
 
 					if (ocdOutpostName != null) {
-						if (outpostRegions.contains(ocdOutpostName)) {
-							if (defenders.size() == 0 && !invaders.contains(invadingPlayer)) {
-								int outpostNum = getOutpostNum(ocdOutpostName);
-								int connectedOutpost1 = plugin.getConfig()
-										.getInt("Outpost." + outpostNum + ".connected1");
-								int connectedOutpost2 = plugin.getConfig()
-										.getInt("Outpost." + outpostNum + ".connected2");
-								String cFaction1 = plugin.getConfig()
-										.getString("Outpost." + connectedOutpost1 + ".faction");
-								String cFaction2 = plugin.getConfig()
-										.getString("Outpost." + connectedOutpost2 + ".faction");
-								if (invadingFaction.getName().equals(cFaction1)
-										|| invadingFaction.getName().equals(cFaction2)) {
-									ocdOutpostCh = ocdRegion;
-									invaders.add(invadingPlayer);
-									for (Player i : invaders) {
+						if (ocdOutpostNameCh.isEmpty() || ocdOutpostName.equals(ocdOutpostNameCh)) {
+							if (outpostRegions.contains(ocdOutpostName)) {
+								if (defenders.size() == 0 && !invaders.contains(invadingPlayer)) {
+									int outpostNum = getOutpostNum(ocdOutpostName);
+									int connectedOutpost1 = plugin.getConfig()
+											.getInt("Outpost." + outpostNum + ".connected1");
+									int connectedOutpost2 = plugin.getConfig()
+											.getInt("Outpost." + outpostNum + ".connected2");
+									String cFaction1 = plugin.getConfig()
+											.getString("Outpost." + connectedOutpost1 + ".faction");
+									String cFaction2 = plugin.getConfig()
+											.getString("Outpost." + connectedOutpost2 + ".faction");
+									if (invadingFaction.getName().equals(cFaction1)
+											|| invadingFaction.getName().equals(cFaction2)) {
+										invaders.add(invadingPlayer);
+										for (Player i : invaders) {
 
-										factionI = MPlayer.get(i);
-										invadingFactionCh = factionI.getFaction();
-										Location invaderLocationCh = i.getLocation();
-										occupiedFactionCh = BoardColl.get().getFactionAt(PS.valueOf(invaderLocationCh));
-										LocalPlayer iLP = worldGuardPlugin.wrapPlayer(i);
-										Vector iVector = iLP.getPosition();
-										RegionManager iManager = worldGuardPlugin.getRegionManager(i.getWorld());
-										ApplicableRegionSet iRegionSet = iManager.getApplicableRegions(iVector);
-										for (ProtectedRegion iRegion : iRegionSet) {
-											if (outpostRegions.contains(iRegion.getId())) {
-												ocdOutpostNameCh = iRegion.getId();
-												outpostNum = getOutpostNum(ocdOutpostNameCh);
-												break;
+											factionI = MPlayer.get(i);
+											invadingFactionCh = factionI.getFaction();
+											Location invaderLocationCh = i.getLocation();
+											occupiedFactionCh = BoardColl.get()
+													.getFactionAt(PS.valueOf(invaderLocationCh));
+											LocalPlayer iLP = worldGuardPlugin.wrapPlayer(i);
+											Vector iVector = iLP.getPosition();
+											RegionManager iManager = worldGuardPlugin.getRegionManager(i.getWorld());
+											ApplicableRegionSet iRegionSet = iManager.getApplicableRegions(iVector);
+											for (ProtectedRegion iRegion : iRegionSet) {
+												if (outpostRegions.contains(iRegion.getId())) {
+													ocdOutpostNameCh = iRegion.getId();
+													ocdOutpostCh = iRegion;
+													outpostNum = getOutpostNum(ocdOutpostNameCh);
+													break;
+												}
+
 											}
-
 										}
+
 									}
 
 								}
 
-							}
-
+							} else if (invaders.contains(invadingPlayer))
+								invaders.remove(invadingPlayer);
 						} else if (invaders.contains(invadingPlayer))
 							invaders.remove(invadingPlayer);
 					} else if (invaders.contains(invadingPlayer))
@@ -282,20 +301,28 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 
 		if (invaders.size() > 0) {
 			for (Player p : Bukkit.getOnlinePlayers()) {
-				LocalPlayer otherPlayer = worldGuardPlugin.wrapPlayer(p);
-				Vector otherVector = otherPlayer.getPosition();
-				RegionManager regionManager = worldGuardPlugin.getRegionManager(invadingPlayer.getWorld());
-				ApplicableRegionSet otherRegionSet = regionManager.getApplicableRegions(otherVector);
-				for (ProtectedRegion r : otherRegionSet) {
+				if (p.hasPermission(canDefend)) {
 					def = MPlayer.get(p);
 					Faction defFaction = def.getFaction();
-
-					if (p.hasPermission(canDefend)) {
-						if (defFaction == occupiedFaction && r.getId().equals(ocdOutpostNameCh)) {
-							invaders.clear();
+					if (defFaction == occupiedFactionCh) {
+						LocalPlayer otherPlayer = worldGuardPlugin.wrapPlayer(p);
+						Vector otherVector = otherPlayer.getPosition();
+						RegionManager regionManager = worldGuardPlugin.getRegionManager(p.getWorld());
+						ApplicableRegionSet otherRegionSet = regionManager.getApplicableRegions(otherVector);
+						ProtectedRegion region = null;
+						for (ProtectedRegion r : otherRegionSet) {
+							region = r;
 						}
 
+						if (region != null) {
+							if (region == ocdOutpostCh) {
+								invaders.clear();
+								break;
+							}
+
+						}
 					}
+
 				}
 
 			}
@@ -370,8 +397,18 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 					plugin.reloadConfig();
 					setScoreboardInvasion(invadingFactionCh);
 					setScoreboardInvasion(occupiedFactionCh);
+					ocdOutpostNameCh = "";
+					double xMi  = ocdOutpostCh.getMinimumPoint().getX();
+					double yMi  = ocdOutpostCh.getMinimumPoint().getY();
+					double zMi  = ocdOutpostCh.getMinimumPoint().getZ();
+					double xMa  = ocdOutpostCh.getMaximumPoint().getX();
+					double yMa  = ocdOutpostCh.getMaximumPoint().getY();
+					double zMa  = ocdOutpostCh.getMaximumPoint().getZ();
+					Location locMi = new Location(Bukkit.getWorld("Builder World VII-"), xMi, yMi, zMi);
+					Location locMa = new Location(Bukkit.getWorld("Builder World VII-"), xMa, yMa, zMa);
+					bannerSwitch(locMi, locMa);
 				}
-				if (invadersAmount > 0 && invasionProgress <= 100) {
+				else if (invadersAmount > 0 && invasionProgress <= 100) {
 					if (invasionProgress == 0) {
 						Bukkit.broadcastMessage(ChatColor.RED + occupiedFactionCh.getName() + "'s" + ChatColor.GOLD
 								+ " outpost " + ChatColor.RED + ocdOutpostNameCh + ChatColor.GOLD + ", is "
@@ -381,7 +418,7 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 					invasionProgress++;
 					setScoreboardInvasion(invadingFactionCh);
 					setScoreboardInvasion(occupiedFactionCh);
-					if (invasionProgress % 5 == 0) {
+					if (invasionProgress % 10 == 0) {
 						Bukkit.broadcastMessage(ChatColor.RED + occupiedFactionCh.getName() + "'s" + ChatColor.GOLD
 								+ " outpost " + ChatColor.RED + ocdOutpostNameCh + ChatColor.GOLD + ", is "
 								+ ChatColor.RED + invasionProgress + ChatColor.GOLD + "% occupied by " + ChatColor.RED
@@ -400,7 +437,7 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 			public void run() {
 
 				if (invaders.size() == 0 && invasionProgress > 0) {
-					if (invasionProgress % 5 == 0) {
+					if (invasionProgress % 10 == 0) {
 						Bukkit.broadcastMessage(ChatColor.RED + occupiedFactionCh.getName() + "'s" + ChatColor.GOLD
 								+ " outpost " + ChatColor.RED + ocdOutpostNameCh + ChatColor.GOLD
 								+ ", is being restored " + ChatColor.RED + invasionProgress + "%");
@@ -413,10 +450,36 @@ public class InvasionCraft extends JavaPlugin implements Listener {
 								ChatColor.RED + ocdOutpostNameCh + ChatColor.GOLD + " has been restored!");
 						setScoreboardInvasion(invadingFactionCh);
 						setScoreboardInvasion(occupiedFactionCh);
+						ocdOutpostNameCh = "";
 					}
 				}
 			}
 		}.runTaskTimer(this, 0, 10);
 	}
+	
+	@EventHandler
+	public void onPlayerInteract(PlayerInteractEvent event) {
+		if (KingdomBannerCmd.bannerReady == true) {
+			Player p = event.getPlayer();
+			Action a = event.getAction();
+			if (a.equals(Action.RIGHT_CLICK_BLOCK)) {
+				if (event.getClickedBlock().getType() == Material.STANDING_BANNER
+						|| event.getClickedBlock().getType() == Material.WALL_BANNER) {
+					Block b = event.getClickedBlock();
+					CraftBanner bM = new CraftBanner(b);
+					List<Pattern> bP = bM.getPatterns();
+					plugin.getConfig().set("Kingdom." + KingdomBannerCmd.kingdom + ".banner.patterns", bP);
+					plugin.getConfig().set("Kingdom." + KingdomBannerCmd.kingdom + ".banner.color", bM.getBaseColor().toString());
+					plugin.saveConfig();
+					plugin.reloadConfig();
+					p.sendMessage(ChatColor.GREEN + KingdomBannerCmd.kingdom + "'s banner set");
+					KingdomBannerCmd.kingdom = "";
+					KingdomBannerCmd.bannerReady = false;
+					
+				}else p.sendMessage(ChatColor.RED + "You must right click on a Banner!");
+			}
+		}
+	}
+
 
 }

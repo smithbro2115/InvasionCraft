@@ -8,3 +8,5 @@ commands:
     description: Force Conquer (for testing purposes)
   outpost:
     description: For assigning and unassigning outposts
+  patternset:
+    description: For assigning and unassigning banner patterns for kingdoms

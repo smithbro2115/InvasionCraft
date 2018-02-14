@@ -26,7 +26,7 @@ public class ForceConquer implements CommandExecutor {
 						+ "/conquer <number (1-12>: Assigns an outpost to the WorldGuard region your standing in");
 			}
 
-			else if (args[0].equalsIgnoreCase("outpost")) {
+			else if (args[0].equalsIgnoreCase("outpost") && p.hasPermission(canForceConquer)) {
 				InvasionCraft.invasionProgress = 99;
 			} else
 				p.sendMessage(ChatColor.RED + "You used this command wrong... Else you don't have permission");
